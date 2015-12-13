@@ -2,3 +2,6 @@
 name = "poker"
 version = "0.1.0"
 authors = ["Fun Maker <funmaker95@gmail.com>"]
+
+[dependencies]
+rand = "*" 

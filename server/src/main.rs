@@ -1,9 +1,22 @@
+#![allow(dead_code)]
+
 use std::*;
-use std::net::{TcpListener, TcpStream};
 use std::io::prelude::*;
 
-fn read_number(def: i32, min: i32, max: i32) -> i32{
+mod server;
+use server::*;
+mod player;
+mod human;
+mod bot;
+mod message;
+mod card;
+mod table;
+use table::*;
+
+fn read_number(text: &str, def: i32, min: i32, max: i32) -> i32{
     'start: loop{
+        print!("{}", text);
+        io::stdout().flush().unwrap();
         let mut line = String::new();
         io::stdin().read_line(&mut line).unwrap();
         if line.trim() == "" {
@@ -23,33 +36,31 @@ fn read_number(def: i32, min: i32, max: i32) -> i32{
 
 fn main() {
 
-    print!("Port number[9001]: ");
-    io::stdout().flush().unwrap();
-    let port = read_number(9001, 0, std::u16::MAX as i32);
+    let port = read_number("Port number[9001]: ", 9001, 0, std::u16::MAX as i32);
+    let players = read_number("Players count[2]: ", 2, 0, 11);
+    let bots = read_number("Bots count[0]: ", 0, 0, 11-players);
+    let money = read_number("Money per player[300]: ", 300, 0, std::i32::MAX);
+    let small_blind = read_number("Small blind[10]: ", 10, 0, std::i32::MAX);
+    let big_blind = read_number("Big blind[10]: ", 10, 0, std::i32::MAX);
 
-    print!("Players count[2]: ");
-    io::stdout().flush().unwrap();
-    let players = read_number(2, 0, 11);
-
-    print!("Bots count[0]: ");
-    io::stdout().flush().unwrap();
-    let bots = read_number(0, 0, 11-players);
-
-    print!("Money per player[300]: ");
-    io::stdout().flush().unwrap();
-    let money = read_number(300, 0, std::i32::MAX);
-
-    print!("Small blind[10]: ");
-    io::stdout().flush().unwrap();
-    let small_blind = read_number(10, 0, std::i32::MAX);
-
-    print!("Big blind[10]: ");
-    io::stdout().flush().unwrap();
-    let big_blind = read_number(10, 0, std::i32::MAX);
-
-
+    let mut server = Server::start_listening(port as u16, players);
+    let mut table = Table::new(&mut server);
 
     loop{
-
+        table.wait_for_players(players);
+        table.start(money, bots);
+        while !table.end() {
+            table.round();
+            table.bet(small_blind, big_blind);
+            table.show_card();
+            table.show_card();
+            table.show_card();
+            table.bet(0, 0);
+            table.show_card();
+            table.bet(0, 0);
+            table.show_card();
+            table.bet(0, 0);
+            table.finalize();
+        }
     }
 }
