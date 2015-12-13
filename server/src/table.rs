@@ -11,7 +11,8 @@ pub struct Table {
     bank: i32,
     shared: Vec<Card>,
     max_bet: i32,
-    dealer: usize,
+    dealer: isize,
+    players: isize,
 }
 
 impl Table {
@@ -22,6 +23,7 @@ impl Table {
             shared: Vec::new(),
             max_bet: 0,
             dealer: 0,
+            players: 0,
         }
     }
 
@@ -73,7 +75,7 @@ impl Table {
         }
     }
 
-    pub fn start(&mut self, start_money: i32, bots: i32) {
+    pub fn start(&mut self, start_money: i32, _bots: i32) {
         let mut server = self.server.lock().unwrap();
         server.players.retain(|player| player.get_name().is_some());
         println!("Starting Game!");
@@ -82,7 +84,8 @@ impl Table {
         for player in server.players.iter_mut() {
             player.set_money(start_money);
         }
-        self.dealer = thread_rng().gen_range(0, server.players.len());
+        self.players = server.players.len() as isize;
+        self.dealer = thread_rng().gen_range(0, self.players);
     }
 
     pub fn round(&mut self) {
@@ -97,22 +100,89 @@ impl Table {
             player.send(&format!("CARDS {} {}", pcards[0], pcards[1]));
             player.set_cards(pcards);
             player.set_bet(0);
+            player.set_fold(false);
         }
+
+        self.dealer = self.get_pos(self.dealer + 1);;
+        server.send_all(format!("DEALER {}", self.dealer))
     }
 
     pub fn show_card(&mut self) {
         unimplemented!()
     }
 
-    pub fn bet(&mut self, small: i32, big: i32) {
-        unimplemented!()
+    fn get_pos(&self, mut pos: isize) -> isize{
+        while pos >= self.players {
+            pos -= self.players;
+        }
+        while pos < 0 {
+            pos += self.players;
+        }
+        pos
+    }
+
+    pub fn first_bet(&mut self, small: i32, big: i32) {
+        let mut server = self.server.lock().unwrap();
+        let mut pos = self.dealer;
+
+        pos = self.get_pos(pos + 1);
+        server.players[pos as usize].bet(small);
+        let msg = format!("SBLIND {} {}", server.players[pos as usize].get_name().unwrap(), small);
+        server.send_all(msg);
+
+        pos = self.get_pos(pos + 1);
+        server.players[pos as usize].bet(big);
+        let msg = format!("BBLIND {} {}", server.players[pos as usize].get_name().unwrap(), big);
+        server.send_all(msg);
+
+        self.max_bet = if big > small {big} else {small};
+    }
+
+    pub fn bet(&mut self, start: isize) {
+        let mut server = self.server.lock().unwrap();
+        println!("Starting Round!");
+        let mut pos = self.dealer;
+        pos = self.get_pos(pos + start);
+        let mut check = false;
+        while !check {
+            let msg = format!("MOVE {}", server.get_player(pos).get_name().unwrap());
+            server.send_all(msg);
+            let raw_msg = server.get_player(pos).wait_for_message();
+            let msg = Message::from_str(&raw_msg);
+            match msg.get_type() {
+                MessageType::BET => {
+                    let msg = Self::unwrap_msg::<BetMessage>(msg);
+                    server.get_player(pos).bet(msg.money);
+                    if msg.money > self.max_bet {
+                        self.max_bet = msg.money;
+                    }
+                },
+                MessageType::FOLD => {
+                    server.get_player(pos).set_fold(true);
+                },
+                MessageType::UNKNOWN => {
+                    println!("Can't parse packet: {}", raw_msg);
+                },
+                _ => {
+                    println!("Unexpected packet: {}", raw_msg);
+                }
+            }
+            check = true;
+
+            for player in server.players.iter_mut() {
+                if !player.get_fold() && !player.is_allin() && player.get_bet() != self.max_bet {
+                    check = false;
+                }
+            }
+        }
+        println!("Check!");
     }
 
     pub fn finalize(&mut self) {
-        unimplemented!()
+
     }
 
     pub fn end(&mut self) -> bool {
-        unimplemented!()
+        false
     }
 }

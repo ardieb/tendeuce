@@ -1,4 +1,6 @@
 #![allow(dead_code)]
+#![allow(unused_imports)]
+#![allow(unreachable_code)]
 
 use std::*;
 use std::io::prelude::*;
@@ -12,6 +14,7 @@ mod message;
 mod card;
 mod table;
 use table::*;
+mod test;
 
 fn read_number(text: &str, def: i32, min: i32, max: i32) -> i32{
     'start: loop{
@@ -35,13 +38,15 @@ fn read_number(text: &str, def: i32, min: i32, max: i32) -> i32{
 }
 
 fn main() {
+    test::table_test();
+    return;
 
     let port = read_number("Port number[9001]: ", 9001, 0, std::u16::MAX as i32);
     let players = read_number("Players count[2]: ", 2, 0, 11);
     let bots = read_number("Bots count[0]: ", 0, 0, 11-players);
     let money = read_number("Money per player[300]: ", 300, 0, std::i32::MAX);
     let small_blind = read_number("Small blind[10]: ", 10, 0, std::i32::MAX);
-    let big_blind = read_number("Big blind[10]: ", 10, 0, std::i32::MAX);
+    let big_blind = read_number("Big blind[10]: ", 20, 0, std::i32::MAX);
 
     let mut server = Server::start_listening(port as u16, players);
     let mut table = Table::new(&mut server);
@@ -51,15 +56,16 @@ fn main() {
         table.start(money, bots);
         while !table.end() {
             table.round();
-            table.bet(small_blind, big_blind);
+            table.first_bet(small_blind, big_blind);
+            table.bet(3);
             table.show_card();
             table.show_card();
             table.show_card();
-            table.bet(0, 0);
+            table.bet(1);
             table.show_card();
-            table.bet(0, 0);
+            table.bet(1);
             table.show_card();
-            table.bet(0, 0);
+            table.bet(1);
             table.finalize();
         }
     }

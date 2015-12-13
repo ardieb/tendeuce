@@ -3,6 +3,7 @@ use std::thread;
 use std::net::{TcpListener, TcpStream};
 use player::*;
 use human::*;
+use std;
 
 pub struct ServerData {
     pub players: Vec<Box<Player + Send>>,
@@ -57,5 +58,15 @@ impl ServerData {
         for player in self.players.iter_mut() {
             player.send(&msg);
         }
+    }
+
+    pub fn get_player(&mut self, mut pos: isize) -> &mut Box<Player + Send>{
+        while pos >= self.players.len() as isize {
+            pos -= self.players.len() as isize;
+        }
+        while pos < 0 {
+            pos += self.players.len() as isize;
+        }
+        &mut self.players[pos as usize]
     }
 }
