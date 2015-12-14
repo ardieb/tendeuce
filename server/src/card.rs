@@ -1,5 +1,6 @@
 extern crate rand;
 use std::cmp::Ordering;
+use std::ops::Sub;
 use self::rand::*;
 use std::fmt;
 
@@ -25,6 +26,14 @@ impl Card {
         thread_rng().shuffle(&mut vec[..]);
         vec
     }
+
+    fn fig(&self) -> char {
+        self.name[0]
+    }
+
+    fn col(&self) -> char {
+        self.name[1]
+    }
 }
 
 impl fmt::Display for Card {
@@ -33,7 +42,7 @@ impl fmt::Display for Card {
     }
 }
 
-static CARD_ORDER: &'static str = "23456789TJDKA";
+static CARD_ORDER: &'static str = "_23456789TJDKA";
 
 impl PartialEq for Card {
     fn eq(&self, other: &Self) -> bool{
@@ -53,31 +62,21 @@ impl Ord for Card {
     }
 }
 
-#[test]
-fn test_card_order(){
-    assert!( Card::new("2♠") == Card::new("2♠") );
-    assert!( Card::new("2♠") == Card::new("2♥") );
-    assert!( Card::new("2♠") != Card::new("3♠") );
-    assert!( Card::new("2♠") != Card::new("3♥") );
-
-    assert!( Card::new("5♠") > Card::new("3♥") );
-    assert!( Card::new("4♠") < Card::new("7♥") );
-
-    assert!( Card::new("4♠") <= Card::new("4♠") );
-    assert!( Card::new("4♠") >= Card::new("4♠") );
-
-    assert!( Card::new("4♠") <= Card::new("4♥") );
-    assert!( Card::new("4♠") >= Card::new("4♥") );
-
-    assert!( Card::new("K♠") == Card::new("K♠") );
-    assert!( Card::new("A♠") == Card::new("A♥") );
-
-    assert!( Card::new("9♠") < Card::new("T♠") );
-    assert!( Card::new("T♠") < Card::new("J♠") );
-    assert!( Card::new("J♠") < Card::new("D♠") );
-    assert!( Card::new("D♠") < Card::new("K♠") );
-    assert!( Card::new("K♠") < Card::new("A♠") );
+impl Sub<i32> for Card {
+    type Output = Card;
+    fn sub(self, offset: i32) -> Card{
+        let pos = CARD_ORDER.find(self.name[0]).unwrap();
+        match CARD_ORDER.chars().nth((pos as i32 - offset) as usize){
+            Some(fig) => Card{
+                name: [fig, self.name[1]],
+            },
+            None => Card{
+                name: ['_', '_'],
+            },
+        }
+    }
 }
+
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 enum HandType{
@@ -114,8 +113,135 @@ impl Hand{
 }
 
 impl Hand {
-    fn find_all( cards: &[Card] ) -> Vec<Hand> {
-        unimplemented!()
+    fn find_all( player: usize, cards: &[Card] ) -> Vec<Hand> {
+        let mut ret: Vec<Hand> = Vec::new();
+
+        'sflush: for i in 0..cards.len() {
+            let mut vec = Vec::new();
+            vec.push(cards[i]);
+            while vec.len() < 5 {
+                match cards.iter().find(|&&card| card == *vec.last().unwrap() - 1 && card.col() == vec.last().unwrap().col()) {
+                    Some(card) => vec.push(*card),
+                    None => continue 'sflush,
+                }
+            }
+            ret.push(Hand{
+                hand_type: HandType::SFLUSH,
+                player: player,
+                cards: vec,
+            })
+        }
+
+        'flush: for i in 0..cards.len() {
+            let mut vec: Vec<Card> = cards.iter().filter(|&&card| card.col() == cards[i].col()).cloned().collect();
+            if vec.len() < 5 {
+                continue
+            }
+            vec.sort_by(|a, b| b.cmp(a));
+            ret.push(Hand{
+                hand_type: HandType::FLUSH,
+                player: player,
+                cards: vec,
+            })
+        }
+
+        'straight: for i in 0..cards.len() {
+            let mut vec = Vec::new();
+            vec.push(cards[i]);
+            while vec.len() < 5 {
+                match cards.iter().find(|&&card| card == *vec.last().unwrap() - 1) {
+                    Some(card) => vec.push(*card),
+                    None => continue 'straight,
+                }
+            }
+            ret.push(Hand{
+                hand_type: HandType::STRAIGHT,
+                player: player,
+                cards: vec,
+            })
+        }
+
+        'four: for i in 0..cards.len() {
+            let vec: Vec<Card> = cards.iter().filter(|&&card| card == cards[i]).cloned().collect();
+            if vec.len() != 4 {
+                continue
+            }
+            ret.push(Hand{
+                hand_type: HandType::FOUR,
+                player: player,
+                cards: vec,
+            })
+        }
+
+        'three: for i in 0..cards.len() {
+            let vec: Vec<Card> = cards.iter().filter(|&&card| card == cards[i]).cloned().collect();
+            if vec.len() != 3 {
+                continue
+            }
+            ret.push(Hand{
+                hand_type: HandType::THREE,
+                player: player,
+                cards: vec,
+            })
+        }
+
+        'pair: for i in 0..cards.len() {
+            let vec: Vec<Card> = cards.iter().filter(|&&card| card == cards[i]).cloned().collect();
+            if vec.len() != 2 {
+                continue
+            }
+            ret.push(Hand{
+                hand_type: HandType::PAIR,
+                player: player,
+                cards: vec,
+            })
+        }
+
+        'card: for i in 0..cards.len() {
+            ret.push(Hand{
+                hand_type: HandType::CARD,
+                player: player,
+                cards: vec![cards[i]],
+            })
+        }
+
+        {
+            let mut fullhouses = Vec::new();
+            for tri in ret.iter().filter(|hand| hand.hand_type == HandType::THREE) {
+                for par in ret.iter().filter(|hand| hand.hand_type == HandType::PAIR) {
+                    let mut vec: Vec<Card> = tri.cards.iter().chain(par.cards.iter()).cloned().collect();
+                    vec.sort_by(|a, b| b.cmp(a));
+                    fullhouses.push(Hand{
+                        hand_type: HandType::FULLHOUSE,
+                        player: player,
+                        cards: vec,
+                    });
+                }
+            }
+            ret.append(&mut fullhouses);
+        }
+
+        {
+            let mut two_pair = Vec::new();
+            for par1 in ret.iter().filter(|hand| hand.hand_type == HandType::PAIR) {
+                for par2 in ret.iter().filter(|hand| hand.hand_type == HandType::PAIR && *hand != par1) {
+                    let mut vec: Vec<Card> = par1.cards.iter().chain(par2.cards.iter()).cloned().collect();
+                    vec.sort_by(|a, b| b.cmp(a));
+                    two_pair.push(Hand{
+                        hand_type: HandType::TWOPAIR,
+                        player: player,
+                        cards: vec,
+                    });
+                }
+            }
+            ret.append(&mut two_pair);
+        }
+
+        ret.sort_by(|a, b| b.cmp(a));
+
+        ret.dedup();
+
+        ret
     }
 }
 
@@ -148,6 +274,32 @@ impl Ord for Hand {
 }
 
 #[test]
+fn test_card_order(){
+    assert!( Card::new("2♠") == Card::new("2♠") );
+    assert!( Card::new("2♠") == Card::new("2♥") );
+    assert!( Card::new("2♠") != Card::new("3♠") );
+    assert!( Card::new("2♠") != Card::new("3♥") );
+
+    assert!( Card::new("5♠") > Card::new("3♥") );
+    assert!( Card::new("4♠") < Card::new("7♥") );
+
+    assert!( Card::new("4♠") <= Card::new("4♠") );
+    assert!( Card::new("4♠") >= Card::new("4♠") );
+
+    assert!( Card::new("4♠") <= Card::new("4♥") );
+    assert!( Card::new("4♠") >= Card::new("4♥") );
+
+    assert!( Card::new("K♠") == Card::new("K♠") );
+    assert!( Card::new("A♠") == Card::new("A♥") );
+
+    assert!( Card::new("9♠") < Card::new("T♠") );
+    assert!( Card::new("T♠") < Card::new("J♠") );
+    assert!( Card::new("J♠") < Card::new("D♠") );
+    assert!( Card::new("D♠") < Card::new("K♠") );
+    assert!( Card::new("K♠") < Card::new("A♠") );
+}
+
+#[test]
 fn test_hand_order(){
     let pair2 = Hand::test_new(HandType::PAIR, vec!["2♠", "2♥"]);
     let pair3 = Hand::test_new(HandType::PAIR, vec!["3♠", "3♥"]);
@@ -168,4 +320,34 @@ fn test_hand_order(){
     assert!(pair3 != tri2);
     assert!(tri2 > pair3);
     assert!(pair3 < tri2);
+}
+
+#[test]
+fn test_hand_find(){
+    let sflush = Hand::find_all(0, &["Aa", "Ka", "Da", "Ja", "Ta"].iter().map(|s| Card::new(s)).collect::<Vec<Card>>()[..]);
+    assert!(sflush.iter().any(|hand| hand.hand_type == HandType::SFLUSH));
+
+    let four = Hand::find_all(0, &["Aa", "Ab", "Ac", "Ad"].iter().map(|s| Card::new(s)).collect::<Vec<Card>>()[..]);
+    assert!(four.iter().any(|hand| hand.hand_type == HandType::FOUR));
+
+    let fullhouse = Hand::find_all(0, &["Aa", "Ab", "Ac", "Ka", "Kb"].iter().map(|s| Card::new(s)).collect::<Vec<Card>>()[..]);
+    assert!(fullhouse.iter().any(|hand| hand.hand_type == HandType::FULLHOUSE));
+
+    let flush = Hand::find_all(0, &["Aa", "Ta", "6a", "5a", "4a"].iter().map(|s| Card::new(s)).collect::<Vec<Card>>()[..]);
+    assert!(flush.iter().any(|hand| hand.hand_type == HandType::FLUSH));
+
+    let straight = Hand::find_all(0, &["9a", "8a", "7b", "6c", "5a"].iter().map(|s| Card::new(s)).collect::<Vec<Card>>()[..]);
+    assert!(straight.iter().any(|hand| hand.hand_type == HandType::STRAIGHT));
+
+    let three = Hand::find_all(0, &["9a", "9b", "9c"].iter().map(|s| Card::new(s)).collect::<Vec<Card>>()[..]);
+    assert!(three.iter().any(|hand| hand.hand_type == HandType::THREE));
+
+    let two_pair = Hand::find_all(0, &["9a", "9b", "Ta", "Tb"].iter().map(|s| Card::new(s)).collect::<Vec<Card>>()[..]);
+    assert!(two_pair.iter().any(|hand| hand.hand_type == HandType::TWOPAIR));
+
+    let pair = Hand::find_all(0, &["9a", "9b"].iter().map(|s| Card::new(s)).collect::<Vec<Card>>()[..]);
+    assert!(pair.iter().any(|hand| hand.hand_type == HandType::PAIR));
+
+    let card = Hand::find_all(0, &["Ta"].iter().map(|s| Card::new(s)).collect::<Vec<Card>>()[..]);
+    assert!(card.iter().any(|hand| hand.hand_type == HandType::CARD));
 }
