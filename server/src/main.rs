@@ -53,7 +53,7 @@ fn main() {
 
     loop{
         table.wait_for_players(players);
-        table.start(money, bots);
+        table.start(money, bots, None);
         while !table.end() {
             table.round();
             table.first_bet(small_blind, big_blind);

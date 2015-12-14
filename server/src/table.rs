@@ -10,6 +10,7 @@ pub struct Table {
     server: Arc<Mutex<ServerData>>,
     bank: i32,
     shared: Vec<Card>,
+    shared_visible: usize,
     max_bet: i32,
     dealer: isize,
     players: isize,
@@ -21,6 +22,7 @@ impl Table {
             server: server.clone(),
             bank: 0,
             shared: Vec::new(),
+            shared_visible: 0,
             max_bet: 0,
             dealer: 0,
             players: 0,
@@ -75,17 +77,17 @@ impl Table {
         }
     }
 
-    pub fn start(&mut self, start_money: i32, _bots: i32) {
+    pub fn start(&mut self, start_money: i32, _bots: i32, dealer: Option<isize>) {
         let mut server = self.server.lock().unwrap();
         server.players.retain(|player| player.get_name().is_some());
-        println!("Starting Game!");
+        println!("\tStarting Game!");
         let msg = Message::start(&server.players[..]);
         server.send_all(msg);
         for player in server.players.iter_mut() {
             player.set_money(start_money);
         }
         self.players = server.players.len() as isize;
-        self.dealer = thread_rng().gen_range(0, self.players);
+        self.dealer = dealer.unwrap_or( thread_rng().gen_range(0, self.players) );
     }
 
     pub fn round(&mut self) {
@@ -95,6 +97,7 @@ impl Table {
 
         let mut cards = Card::generate("23456789TJDKA", "♠♥♦♣");
         self.shared = vec![cards.pop().unwrap(), cards.pop().unwrap(), cards.pop().unwrap(), cards.pop().unwrap(), cards.pop().unwrap()];
+        self.shared_visible = 0;
         for player in server.players.iter_mut() {
             let pcards = [cards.pop().unwrap(), cards.pop().unwrap()];
             player.send(&format!("CARDS {} {}", pcards[0], pcards[1]));
@@ -108,7 +111,9 @@ impl Table {
     }
 
     pub fn show_card(&mut self) {
-        unimplemented!()
+        let mut server = self.server.lock().unwrap();
+        server.send_all(format!("CARD {}", self.shared[self.shared_visible]));
+        self.shared_visible += 1;
     }
 
     fn get_pos(&self, mut pos: isize) -> isize{
@@ -140,13 +145,28 @@ impl Table {
 
     pub fn bet(&mut self, start: isize) {
         let mut server = self.server.lock().unwrap();
-        println!("Starting Round!");
+        println!("\tStarting Round!");
         let mut pos = self.dealer;
         pos = self.get_pos(pos + start);
         let mut check = false;
-        while !check {
+        let mut played = 0;
+        let mut can_play = 0;
+
+        for player in server.players.iter_mut() {
+            if !player.get_fold() && !player.is_allin() {
+                can_play += 1;
+            }
+        }
+
+        while !check && can_play > 1 {
+            while server.get_player(pos).get_fold() || server.get_player(pos).is_allin() {
+                pos = self.get_pos(pos + 1);
+                played += 1;
+            }
+
             let msg = format!("MOVE {}", server.get_player(pos).get_name().unwrap());
             server.send_all(msg);
+
             let raw_msg = server.get_player(pos).wait_for_message();
             let msg = Message::from_str(&raw_msg);
             match msg.get_type() {
@@ -156,9 +176,13 @@ impl Table {
                     if msg.money > self.max_bet {
                         self.max_bet = msg.money;
                     }
+                    let msg = format!("BET {} {}", msg.money, server.get_player(pos).get_name().unwrap());
+                    server.send_all(msg);
                 },
                 MessageType::FOLD => {
                     server.get_player(pos).set_fold(true);
+                    let msg = format!("FOLD {}", server.get_player(pos).get_name().unwrap());
+                    server.send_all(msg);
                 },
                 MessageType::UNKNOWN => {
                     println!("Can't parse packet: {}", raw_msg);
@@ -167,7 +191,11 @@ impl Table {
                     println!("Unexpected packet: {}", raw_msg);
                 }
             }
-            check = true;
+
+            pos = self.get_pos(pos + 1);
+            played += 1;
+
+            check = played >= self.players; // WE CAN'T CHECK BEFORE EVERYONE PLAYED
 
             for player in server.players.iter_mut() {
                 if !player.get_fold() && !player.is_allin() && player.get_bet() != self.max_bet {
@@ -175,11 +203,11 @@ impl Table {
                 }
             }
         }
-        println!("Check!");
+        println!("\tCheck!");
     }
 
     pub fn finalize(&mut self) {
-
+        unimplemented!()
     }
 
     pub fn end(&mut self) -> bool {

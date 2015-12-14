@@ -61,7 +61,7 @@ macro_rules! try_box {
     ) => (
         match $msg {
             Some(msg) => Box::new(msg),
-            None => Box::new($default::parse(Vec::new()).unwrap())
+            None => Box::new($default::parse(vec!["MissingNO."]).unwrap())
         }
     )
 }
@@ -76,6 +76,8 @@ impl Message{
         let args = msg.split(' ').collect::<Vec<&str>>();
         match args[0] {
             "READY" => try_box!(ReadyMessage::parse(args), UnknownMessage),
+            "BET" => try_box!(BetMessage::parse(args), UnknownMessage),
+            "FOLD" => try_box!(FoldMessage::parse(args), UnknownMessage),
             _ => try_box!(UnknownMessage::parse(args), UnknownMessage)
         }
     }
