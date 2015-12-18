@@ -1,7 +1,6 @@
-extern crate rand;
 use std::cmp::Ordering;
 use std::ops::Sub;
-use self::rand::*;
+use super::rand::*;
 use std::fmt;
 
 #[derive(Debug, Copy, Clone, Eq)]
@@ -10,7 +9,7 @@ pub struct Card {
 }
 
 impl Card {
-    fn new(name: &str) -> Card{
+    pub fn new(name: &str) -> Card{
         Card{
             name: [name.chars().nth(0).unwrap(), name.chars().nth(1).unwrap()]
         }
@@ -79,7 +78,7 @@ impl Sub<i32> for Card {
 
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-enum HandType{
+pub enum HandType{
     CARD,
     PAIR,
     TWOPAIR,
@@ -93,9 +92,9 @@ enum HandType{
 
 #[derive(Debug, Clone, Eq)]
 pub struct Hand {
-    hand_type: HandType,
-    cards: Vec<Card>,
-    player: usize,
+    pub hand_type: HandType,
+    pub cards: Vec<Card>,
+    pub player: usize,
 }
 
 impl Hand{
@@ -113,7 +112,7 @@ impl Hand{
 }
 
 impl Hand {
-    fn find_all( player: usize, cards: &[Card] ) -> Vec<Hand> {
+    pub fn find_all( player: usize, cards: &[Card] ) -> Vec<Hand> {
         let mut ret: Vec<Hand> = Vec::new();
 
         'sflush: for i in 0..cards.len() {
@@ -237,10 +236,8 @@ impl Hand {
             ret.append(&mut two_pair);
         }
 
-        ret.sort_by(|a, b| b.cmp(a));
-
+        ret.sort();
         ret.dedup();
-
         ret
     }
 }

@@ -103,5 +103,5 @@ define_messages!{
     UnknownMessage(MessageType::UNKNOWN => );
     ReadyMessage(MessageType::READY => name: String);
     BetMessage(MessageType::BET => money: i32);
-    FoldMessage(MessageType::FOLD => money: i32);
+    FoldMessage(MessageType::FOLD => );
 }

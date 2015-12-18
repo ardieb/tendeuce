@@ -9,7 +9,7 @@ use player::*;
 use human::*;
 use std;
 
-//#[test]
+#[test]
 pub fn table_test() {
     let p1 = Arc::new(Mutex::new(Vec::new()));
     let p2 = Arc::new(Mutex::new(Vec::new()));
@@ -34,28 +34,26 @@ pub fn table_test() {
     test2("READY p2");
     table.wait_for_players(2);
     table.start(300, 0, Some(0)); //PLAYER p1 IS THE DEALER
-    while !table.end() {
-        table.round();
-        test1("BET 30");
-        test2("BET 40");
-        test1("BET 40");
-        table.first_bet(10, 20);
-        table.bet(3);
-        table.show_card();
-        table.show_card();
-        table.show_card();
-        test1("BET 40");
-        test2("BET 40");
-        table.bet(1);
-        table.show_card();
-        test1("BET 100");
-        test2("BET 150");
-        test1("BET 150");
-        table.bet(1);
-        table.show_card();
-        test1("BET 150");
-        test2("FOLD");
-        table.bet(1);
-        table.finalize();
-    }
+    table.round();
+    test1("BET 30");
+    test2("BET 40");
+    test1("BET 40");
+    table.first_bet(10, 20);
+    table.bet(3);
+    table.show_card();
+    table.show_card();
+    table.show_card();
+    test1("BET 40");
+    test2("BET 40");
+    table.bet(1);
+    table.show_card();
+    test1("BET 100");
+    test2("BET 150");
+    test1("BET 150");
+    table.bet(1);
+    table.show_card();
+    test1("BET 150");
+    test2("FOLD");
+    table.bet(1);
+    table.finalize();
 }

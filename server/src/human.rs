@@ -122,6 +122,10 @@ impl Player for Human {
         self.cards = Some(cards);
     }
 
+    fn get_cards(&self) -> [Card; 2]{
+        self.cards.unwrap()
+    }
+
     fn is_dead(&self) -> bool{
         self.dead.lock().unwrap().clone()
     }

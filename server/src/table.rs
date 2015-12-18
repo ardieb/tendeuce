@@ -1,10 +1,12 @@
-extern crate rand;
-use self::rand::{thread_rng, Rng};
+use super::rand::{thread_rng, Rng};
 use std::sync::*;
 use std::*;
 use super::server::*;
 use super::message::*;
 use super::card::*;
+use super::human::*;
+use super::player::*;
+use super::bot::*;
 
 pub struct Table {
     server: Arc<Mutex<ServerData>>,
@@ -77,10 +79,13 @@ impl Table {
         }
     }
 
-    pub fn start(&mut self, start_money: i32, _bots: i32, dealer: Option<isize>) {
+    pub fn start(&mut self, start_money: i32, bots: i32, dealer: Option<isize>) {
         let mut server = self.server.lock().unwrap();
         server.players.retain(|player| player.get_name().is_some());
         println!("\tStarting Game!");
+        for i in 0..bots {
+            server.players.push(Box::new(Bot::new(i)));
+        }
         let msg = Message::start(&server.players[..]);
         server.send_all(msg);
         for player in server.players.iter_mut() {
@@ -98,16 +103,19 @@ impl Table {
         let mut cards = Card::generate("23456789TJDKA", "♠♥♦♣");
         self.shared = vec![cards.pop().unwrap(), cards.pop().unwrap(), cards.pop().unwrap(), cards.pop().unwrap(), cards.pop().unwrap()];
         self.shared_visible = 0;
+        println!("Players:", );
         for player in server.players.iter_mut() {
             let pcards = [cards.pop().unwrap(), cards.pop().unwrap()];
             player.send(&format!("CARDS {} {}", pcards[0], pcards[1]));
             player.set_cards(pcards);
             player.set_bet(0);
             player.set_fold(false);
+            println!("{}: {} coins.", player.get_name().unwrap(), player.get_money());
         }
 
         self.dealer = self.get_pos(self.dealer + 1);;
-        server.send_all(format!("DEALER {}", self.dealer))
+        server.send_all(format!("DEALER {}", self.dealer));
+        println!("{} is a dealer.", server.players[self.dealer as usize].get_name().unwrap());
     }
 
     pub fn show_card(&mut self) {
@@ -169,9 +177,13 @@ impl Table {
 
             let raw_msg = server.get_player(pos).wait_for_message();
             let msg = Message::from_str(&raw_msg);
+            //println!(">{}", raw_msg);
             match msg.get_type() {
                 MessageType::BET => {
                     let msg = Self::unwrap_msg::<BetMessage>(msg);
+                    if msg.money < self.max_bet {
+                        panic!("Bet is too small!");
+                    }
                     server.get_player(pos).bet(msg.money);
                     if msg.money > self.max_bet {
                         self.max_bet = msg.money;
@@ -207,10 +219,113 @@ impl Table {
     }
 
     pub fn finalize(&mut self) {
-        unimplemented!()
+        let mut server = self.server.lock().unwrap();
+        for player in server.players.iter_mut() {
+            self.bank += player.get_bet();
+        }
+
+        let mut hands = Vec::new();
+        for (id, player) in server.players.iter_mut().enumerate() {
+            let player_cards = &player.get_cards();
+            let cards = player_cards.iter().chain(self.shared.iter());
+            let mut player_hands: Vec<Hand> = Hand::find_all(id, &cards.cloned().collect::<Vec<Card>>());
+            hands.append(&mut player_hands);
+        }
+        hands.sort();
+
+        let mut best: Vec<Hand> = Vec::new();
+        let mut winners: Vec<usize> = server.players.iter().enumerate().filter_map(|(id, player)| if player.get_fold() {None} else {Some(id)} ).collect();
+        while winners.len() > 1 {
+            let hand = hands.pop();
+            if hand.is_some() && (best.is_empty() || best[0] == *hand.as_ref().unwrap()) {
+                best.push(hand.unwrap());
+            } else {
+                let mut players = Vec::new();
+                for hand in best.iter() {
+                    if players.iter().all(|&p| p != hand.player) {
+                        players.push(hand.player);
+                    }
+                }
+                winners.retain(|w| players.iter().any(|p| p==w));
+                hands.retain(|h| winners.iter().any(|&w| h.player == w));
+
+                if let Some(hand) = hand {
+                    if winners.len() <= 1 {
+                        break;
+                    }
+                    best.clear();
+                    best.push(hand);
+                } else {
+                    break;
+                }
+            }
+        }
+        let mut per_player = 0;
+        if winners.len() > 0 {
+            per_player = self.bank / winners.len() as i32;
+        }
+        for winner in winners {
+            let player = &mut server.players[winner];
+            let player_money = player.get_money();
+            let player_bet = player.get_bet();
+            let money;
+
+            if player.is_allin() && per_player > player_bet * self.players as i32 {
+                self.bank -= player_bet * self.players as i32;
+                money = player_bet * self.players as i32;
+                player.set_money(player_money + player_bet * self.players as i32);
+            } else {
+                self.bank -= per_player;
+                money = per_player;
+                player.set_money(player_money + per_player);
+            }
+            if let Some(hand) = best.iter().find(|h| h.player == winner){
+                println!("{} won {} because of {:?}", hand.player, money, hand.hand_type);
+            }else{
+                println!("{} won {}", winner, money);
+            }
+        }
+        println!("{} left in bank", self.bank);
     }
 
     pub fn end(&mut self) -> bool {
-        false
+        let server = self.server.lock().unwrap();
+        server.players.iter().filter(|p| p.get_money() > 0 && !p.is_dead()).count() <= 1
     }
+}
+
+#[test]
+fn test_finalize(){
+    let shared = vec![Card::new("Ta"), Card::new("5a"), Card::new("8a"), Card::new("3b"), Card::new("Kb")];
+    let c1 = [Card::new("Tb"), Card::new("5d")];
+    let c2 = [Card::new("Tc"), Card::new("4c")];
+
+    let mut p1 = Box::new(Human::test_new(Arc::new(Mutex::new(Vec::new()))));
+    let mut p2 = Box::new(Human::test_new(Arc::new(Mutex::new(Vec::new()))));
+
+    p1.set_cards(c1);
+    p1.set_money(10);
+    p1.set_bet(5);
+    p2.set_cards(c2);
+    p2.set_money(10);
+    p2.set_bet(5);
+
+    let server_data = Arc::new(Mutex::new(ServerData{
+        started: true,
+        players: vec![
+            p1,
+            p2,
+        ]
+    }));
+    let mut table = Table{
+        server: server_data.clone(),
+        bank: 300,
+        shared: shared,
+        shared_visible: 0,
+        max_bet: 0,
+        dealer: 0,
+        players: 2,
+    };
+
+    table.finalize();
 }
