@@ -6,7 +6,7 @@ public class Card : MonoBehaviour {
 
 	// Use this for initialization
 	void Start () {
-
+		
 	}
 	
 	// Update is called once per frame
@@ -15,7 +15,9 @@ public class Card : MonoBehaviour {
 	}
 
     public void SetCard(string name){
-        GetComponent<Image>().sprite = Resources.Load("cards/"+name) as Sprite;
+		if (name.Length == 2)
+			name = name [0] + " " + name [1];
+		GetComponent<Image>().sprite = Resources.Load<Sprite>("cards/"+name);
 
     }
 }

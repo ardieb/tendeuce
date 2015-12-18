@@ -113,9 +113,10 @@ impl Table {
             println!("{}: {} coins.", player.get_name().unwrap(), player.get_money());
         }
 
-        self.dealer = self.get_pos(self.dealer + 1);;
-        server.send_all(format!("DEALER {}", self.dealer));
-        println!("{} is a dealer.", server.players[self.dealer as usize].get_name().unwrap());
+        self.dealer = self.get_pos(self.dealer + 1);
+		let dealer_name = server.players[self.dealer as usize].get_name().unwrap();
+        server.send_all(format!("DEALER {}", dealer_name));
+        println!("{} is a dealer.", dealer_name);
     }
 
     pub fn show_card(&mut self) {
@@ -264,6 +265,7 @@ impl Table {
         if winners.len() > 0 {
             per_player = self.bank / winners.len() as i32;
         }
+		let mut msgs = Vec::new();
         for winner in winners {
             let player = &mut server.players[winner];
             let player_money = player.get_money();
@@ -280,11 +282,22 @@ impl Table {
                 player.set_money(player_money + per_player);
             }
             if let Some(hand) = best.iter().find(|h| h.player == winner){
-                println!("{} won {} because of {:?}", hand.player, money, hand.hand_type);
+                println!("{} won {} because of {:?}", player.get_name().unwrap(), money, hand.hand_type);
+				let msg = format!("WON {} {} {:?}",player.get_name().unwrap(), money, hand.hand_type);
+				msgs.push(msg);
             }else{
                 println!("{} won {}", winner, money);
+				let msg = format!("WON {} {} last_standing",player.get_name().unwrap(), money);
+				msgs.push(msg);
             }
         }
+		for player in server.players.iter() {
+			let msg = format!("ENDCARDS {} {} {}",player.get_name().unwrap(), player.get_cards()[0], player.get_cards()[1]);
+			msgs.push(msg);
+		}
+		for msg in msgs.iter_mut().rev() {
+			server.send_all(msg.clone());
+		}
         println!("{} left in bank", self.bank);
     }
 

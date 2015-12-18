@@ -6,7 +6,8 @@ public class Player : MonoBehaviour {
 
     public GameObject card1;
     public GameObject card2;
-    public GameObject nick;
+	public GameObject nick;
+	public GameObject arrow;
     public void setCards(string name1, string name2)
     {
         card1.GetComponent<Card>().SetCard(name1);
@@ -22,7 +23,12 @@ public class Player : MonoBehaviour {
     public string getNick()
     {
         return nick.GetComponent<Text>().text;
-    }
+	}
+
+	public void setCurrent(bool state)
+	{
+		arrow.SetActive (state);
+	}
 	// Use this for initialization
 	void Start () {
 	

@@ -42,8 +42,8 @@ fn read_number(text: &str, def: i32, min: i32, max: i32) -> i32{
 fn main() {
 
     let port = read_number("Port number[9001]: ", 9001, 0, std::u16::MAX as i32);
-    let players = read_number("Players count[2]: ", 0, 0, 11);
-    let bots = read_number("Bots count[0]: ", 2, 0, 11-players);
+    let players = read_number("Players count[1]: ", 1, 0, 11);
+    let bots = read_number("Bots count[1]: ", 1, 0, 11-players);
     let money = read_number("Money per player[300]: ", 300, 0, std::i32::MAX);
     let small_blind = read_number("Small blind[10]: ", 10, 0, std::i32::MAX);
     let big_blind = read_number("Big blind[10]: ", 20, 0, std::i32::MAX);
