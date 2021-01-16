@@ -1,4 +1,4 @@
-pub const VALUE_BINS: [u32; 52] = [
+pub const VALUE_BINS: [usize; 52] = [
     0x1, 0x1, 0x1, 0x1,
     0x2, 0x2, 0x2, 0x2,
     0x4, 0x4, 0x4, 0x4,
@@ -14,7 +14,7 @@ pub const VALUE_BINS: [u32; 52] = [
     0x1000, 0x1000, 0x1000, 0x1000,
 ];
 
-pub const SUIT_BINS: [u32; 52] = [
+pub const SUIT_BINS: [usize; 52] = [
     0x1, 0x8, 0x40, 0x200,
     0x1, 0x8, 0x40, 0x200,
     0x1, 0x8, 0x40, 0x200,
@@ -30,7 +30,7 @@ pub const SUIT_BINS: [u32; 52] = [
     0x1, 0x8, 0x40, 0x200,
 ];
 
-pub const CHOOSE: [[u32; 10]; 53] = [
+pub const CHOOSE: [[usize; 10]; 53] = [
     [
         1, 0, 0, 0, 0,
         0, 0, 0, 0, 0,
@@ -245,7 +245,7 @@ pub const CHOOSE: [[u32; 10]; 53] = [
     ],
 ];
 
-pub const DP: [[[u32; 10]; 14]; 5] = [
+pub const DP: [[[usize; 10]; 14]; 5] = [
     [
         [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
         [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
@@ -328,7 +328,7 @@ pub const DP: [[[u32; 10]; 14]; 5] = [
     ],
 ];
 
-pub const SUITS: [u32; 4609] = [
+pub const SUITS: [usize; 4609] = [
     0, 0, 0, 0, 0, 1, 1, 1,
     1, 1, 0, 0, 0, 1, 1, 1,
     1, 0, 0, 0, 0, 1, 1, 1,

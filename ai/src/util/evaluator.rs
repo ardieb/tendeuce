@@ -24,7 +24,7 @@ pub enum Category {
 /// equivalency classes for a poker hand. In all there are 7462 such
 /// equivalency classes. They are scored in order of best to worst starting
 /// with the smallest value.
-pub fn category(category: &u32) -> Category {
+pub fn category(category: &usize) -> Category {
     match *category {
         1..=10 => Category::StraightFlush,
         11..=166 => Category::FourOfAKind,
@@ -42,21 +42,21 @@ pub fn category(category: &u32) -> Category {
 /// A description of the rank
 /// # Param category: the 32 bit rank of the hand
 /// # Returns: a tuple containing a representative str of cards and a str description
-pub fn description(category: &u32) -> (&'static str, &'static str) {
+pub fn description(category: &usize) -> (&'static str, &'static str) {
     DESCRIPTORS[*category as usize]
 }
 
 /// The rank id of the card
 /// # Param card: the id of the card, 0..52
 /// # Returns: the rank id of the card, 0..12
-fn rank_from_id(card: &u32) -> u32 {
+fn rank_from_id(card: &usize) -> usize {
     (*card >> 2) & 0xFF
 }
 
 /// The suit id of the card
 /// # Param card: the id of the card, 0..52
 /// # Returns: the suit id of the card, 0..4
-fn suit_from_id(card: &u32) -> u32 {
+fn suit_from_id(card: &usize) -> usize {
     *card & 0x3
 }
 
@@ -64,7 +64,7 @@ fn suit_from_id(card: &u32) -> u32 {
 /// # Param cards: an iterator of cards
 /// # Param n: the size of the hand, 5..7
 /// # Returns: the rank of the hand
-pub fn eval<'a>(cards: impl Iterator<Item = &'a u32>, n: usize) -> u32 {
+pub fn eval<'a>(cards: impl Iterator<Item=&'a usize>, n: usize) -> usize {
     if n < 5 || n > 7 {
         panic!("Cannot evaluate a hand of size {}. Only 5, 6, or 7 card hands", n);
     }
@@ -82,7 +82,7 @@ pub fn eval<'a>(cards: impl Iterator<Item = &'a u32>, n: usize) -> u32 {
     }
 
     if SUITS[sh] != 0 {
-        return FLUSH[sbin[SUITS[sh] as usize - 1]] as u32;
+        return FLUSH[sbin[SUITS[sh] as usize - 1]] as usize;
     }
 
     let mut hash: usize = 0;
@@ -99,5 +99,5 @@ pub fn eval<'a>(cards: impl Iterator<Item = &'a u32>, n: usize) -> u32 {
         6 => NOFLUSH6[hash],
         7 => NOFLUSH7[hash],
         _ => panic!("Failed during hash lookup!")
-    }) as u32
+    }) as usize
 }

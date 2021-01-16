@@ -7,19 +7,22 @@ extern crate rand;
 use std::*;
 use std::io::prelude::*;
 
-mod server;
 use server::*;
+use table::*;
+
+mod server;
+
 mod player;
 mod human;
 mod bot;
 mod message;
 mod card;
 mod table;
-use table::*;
+
 mod test;
 
-fn read_number(text: &str, def: i32, min: i32, max: i32) -> i32{
-    'start: loop{
+fn read_number(text: &str, def: i32, min: i32, max: i32) -> i32 {
+    'start: loop {
         print!("{}", text);
         io::stdout().flush().unwrap();
         let mut line = String::new();
@@ -27,7 +30,7 @@ fn read_number(text: &str, def: i32, min: i32, max: i32) -> i32{
         if line.trim() == "" {
             return def;
         }
-        let num = match line.trim().parse::<i32>(){
+        let num = match line.trim().parse::<i32>() {
             Ok(num) if num >= min && num < max => num,
             _ => {
                 print!("Try again: ");
@@ -40,13 +43,12 @@ fn read_number(text: &str, def: i32, min: i32, max: i32) -> i32{
 }
 
 fn main() {
-
-    let port = read_number("Port number[9001]: ", 9001, 0, std::u16::MAX as i32);
-    let players = read_number("Players count[1]: ", 1, 0, 11);
-    let bots = read_number("Bots count[1]: ", 1, 0, 11-players);
-    let money = read_number("Money per player[300]: ", 300, 0, std::i32::MAX);
-    let small_blind = read_number("Small blind[10]: ", 10, 0, std::i32::MAX);
-    let big_blind = read_number("Big blind[10]: ", 20, 0, std::i32::MAX);
+    let port = read_number("Port number <default = 9001>: ", 9001, 0, u16::MAX as i32);
+    let players = read_number("Players count <default = 1>: ", 1, 0, 11);
+    let bots = read_number("Bots count <default = 1>: ", 1, 0, 11 - players);
+    let money = read_number("Money per player <default = 300>: ", 300, 0, i32::MAX);
+    let small_blind = read_number("Small blind <default = 10>: ", 10, 0, i32::MAX);
+    let big_blind = read_number("Big blind <default = 20>: ", 20, 0, i32::MAX);
 
     let mut server = Server::start_listening(port as u16, players);
     let mut table = Table::new(&mut server);
@@ -68,5 +70,5 @@ fn main() {
         table.finalize();
     }
 
-    println!("End!", );
+    println!("End!");
 }

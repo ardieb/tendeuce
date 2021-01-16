@@ -1,12 +1,13 @@
-use super::rand::{thread_rng, Rng};
-use std::sync::*;
 use std::*;
-use super::server::*;
-use super::message::*;
+use std::sync::*;
+use rand::{Rng, thread_rng, seq::IteratorRandom};
+
+use super::bot::*;
 use super::card::*;
 use super::human::*;
+use super::message::*;
 use super::player::*;
-use super::bot::*;
+use super::server::*;
 
 pub struct Table {
     server: Arc<Mutex<ServerData>>,
@@ -20,7 +21,7 @@ pub struct Table {
 
 impl Table {
     pub fn new(server: &mut Arc<Mutex<ServerData>>) -> Table {
-        Table{
+        Table {
             server: server.clone(),
             bank: 0,
             shared: Vec::new(),
@@ -31,11 +32,11 @@ impl Table {
         }
     }
 
-    fn unwrap_msg<T>(msg: Box<Message>) -> Box<T> where T: Message{
-        unsafe{ Box::from_raw( Box::into_raw(msg) as *mut T ) }
+    fn unwrap_msg<T>(msg: Box<dyn Message>) -> Box<T> where T: Message {
+        unsafe { Box::from_raw(Box::into_raw(msg) as *mut T) }
     }
 
-    pub fn wait_for_players(&mut self, players: i32){
+    pub fn wait_for_players(&mut self, players: i32) {
         println!("Waiting for players( 0/{} )", players);
         let mut ready = 0;
         while ready < players as usize {
@@ -45,20 +46,20 @@ impl Table {
                     while let Some(raw_msg) = player.get_message() {
                         let msg = Message::from_str(&raw_msg);
                         match msg.get_type() {
-                            MessageType::READY => {
+                            MessageType::Ready => {
                                 let msg = Self::unwrap_msg::<ReadyMessage>(msg);
-                                if let Some(_) = player.get_name(){
+                                if let Some(_) = player.get_name() {
                                     println!("Unexpected packet: {}", raw_msg);
                                     println!("Waiting for players( {}/{} )", ready, players);
-                                }else{
+                                } else {
                                     player.set_name(msg.name);
                                     ready += 1;
                                     println!("Waiting for players( {}/{} )", ready, players);
                                 }
-                            },
-                            MessageType::UNKNOWN => {
+                            }
+                            MessageType::Unknown => {
                                 println!("Can't parse packet: {}", raw_msg);
-                            },
+                            }
                             _ => {
                                 println!("Unexpected packet: {}", raw_msg);
                             }
@@ -92,7 +93,7 @@ impl Table {
             player.set_money(start_money);
         }
         self.players = server.players.len() as isize;
-        self.dealer = dealer.unwrap_or( thread_rng().gen_range(0, self.players) );
+        self.dealer = dealer.unwrap_or((0..self.players).choose(&mut thread_rng()).unwrap());
     }
 
     pub fn round(&mut self) {
@@ -101,8 +102,6 @@ impl Table {
         server.send_all(msg);
 
         let mut cards = Card::generate("23456789TJDKA", "♠♥♦♣");
-        self.shared = vec![cards.pop().unwrap(), cards.pop().unwrap(), cards.pop().unwrap(), cards.pop().unwrap(), cards.pop().unwrap()];
-        self.shared_visible = 0;
         println!("Players:", );
         for player in server.players.iter_mut() {
             let pcards = [cards.pop().unwrap(), cards.pop().unwrap()];
@@ -112,9 +111,12 @@ impl Table {
             player.set_fold(false);
             println!("{}: {} coins.", player.get_name().unwrap(), player.get_money());
         }
+        self.shared = vec![cards.pop().unwrap(), cards.pop().unwrap(), cards.pop().unwrap(), cards.pop().unwrap(), cards.pop().unwrap()];
+        self.shared_visible = 0;
+
 
         self.dealer = self.get_pos(self.dealer + 1);
-		let dealer_name = server.players[self.dealer as usize].get_name().unwrap();
+        let dealer_name = server.players[self.dealer as usize].get_name().unwrap();
         server.send_all(format!("DEALER {}", dealer_name));
         println!("{} is a dealer.", dealer_name);
     }
@@ -125,7 +127,7 @@ impl Table {
         self.shared_visible += 1;
     }
 
-    fn get_pos(&self, mut pos: isize) -> isize{
+    fn get_pos(&self, mut pos: isize) -> isize {
         while pos >= self.players {
             pos -= self.players;
         }
@@ -149,7 +151,7 @@ impl Table {
         let msg = format!("BBLIND {} {}", server.players[pos as usize].get_name().unwrap(), big);
         server.send_all(msg);
 
-        self.max_bet = if big > small {big} else {small};
+        self.max_bet = if big > small { big } else { small };
     }
 
     pub fn bet(&mut self, start: isize) {
@@ -180,7 +182,7 @@ impl Table {
             let msg = Message::from_str(&raw_msg);
             //println!(">{}", raw_msg);
             match msg.get_type() {
-                MessageType::BET => {
+                MessageType::Bet => {
                     let msg = Self::unwrap_msg::<BetMessage>(msg);
                     if msg.money < self.max_bet {
                         panic!("Bet is too small!");
@@ -191,15 +193,15 @@ impl Table {
                     }
                     let msg = format!("BET {} {}", msg.money, server.get_player(pos).get_name().unwrap());
                     server.send_all(msg);
-                },
-                MessageType::FOLD => {
+                }
+                MessageType::Fold => {
                     server.get_player(pos).set_fold(true);
                     let msg = format!("FOLD {}", server.get_player(pos).get_name().unwrap());
                     server.send_all(msg);
-                },
-                MessageType::UNKNOWN => {
+                }
+                MessageType::Unknown => {
                     println!("Can't parse packet: {}", raw_msg);
-                },
+                }
                 _ => {
                     println!("Unexpected packet: {}", raw_msg);
                 }
@@ -235,7 +237,7 @@ impl Table {
         hands.sort();
 
         let mut best: Vec<Hand> = Vec::new();
-        let mut winners: Vec<usize> = server.players.iter().enumerate().filter_map(|(id, player)| if player.get_fold() {None} else {Some(id)} ).collect();
+        let mut winners: Vec<usize> = server.players.iter().enumerate().filter_map(|(id, player)| if player.get_fold() { None } else { Some(id) }).collect();
         while winners.len() > 1 {
             let hand = hands.pop();
             if hand.is_some() && (best.is_empty() || best[0] == *hand.as_ref().unwrap()) {
@@ -247,7 +249,7 @@ impl Table {
                         players.push(hand.player);
                     }
                 }
-                winners.retain(|w| players.iter().any(|p| p==w));
+                winners.retain(|w| players.iter().any(|p| p == w));
                 hands.retain(|h| winners.iter().any(|&w| h.player == w));
 
                 if let Some(hand) = hand {
@@ -265,7 +267,7 @@ impl Table {
         if winners.len() > 0 {
             per_player = self.bank / winners.len() as i32;
         }
-		let mut msgs = Vec::new();
+        let mut msgs = Vec::new();
         for winner in winners {
             let player = &mut server.players[winner];
             let player_money = player.get_money();
@@ -281,23 +283,23 @@ impl Table {
                 money = per_player;
                 player.set_money(player_money + per_player);
             }
-            if let Some(hand) = best.iter().find(|h| h.player == winner){
+            if let Some(hand) = best.iter().find(|h| h.player == winner) {
                 println!("{} won {} because of {:?}", player.get_name().unwrap(), money, hand.hand_type);
-				let msg = format!("WON {} {} {:?}",player.get_name().unwrap(), money, hand.hand_type);
-				msgs.push(msg);
-            }else{
+                let msg = format!("WON {} {} {:?}", player.get_name().unwrap(), money, hand.hand_type);
+                msgs.push(msg);
+            } else {
                 println!("{} won {}", winner, money);
-				let msg = format!("WON {} {} last_standing",player.get_name().unwrap(), money);
-				msgs.push(msg);
+                let msg = format!("WON {} {} last_standing", player.get_name().unwrap(), money);
+                msgs.push(msg);
             }
         }
-		for player in server.players.iter() {
-			let msg = format!("ENDCARDS {} {} {}",player.get_name().unwrap(), player.get_cards()[0], player.get_cards()[1]);
-			msgs.push(msg);
-		}
-		for msg in msgs.iter_mut().rev() {
-			server.send_all(msg.clone());
-		}
+        for player in server.players.iter() {
+            let msg = format!("ENDCARDS {} {} {}", player.get_name().unwrap(), player.get_cards()[0], player.get_cards()[1]);
+            msgs.push(msg);
+        }
+        for msg in msgs.iter_mut().rev() {
+            server.send_all(msg.clone());
+        }
         println!("{} left in bank", self.bank);
     }
 
@@ -308,7 +310,7 @@ impl Table {
 }
 
 #[test]
-fn test_finalize(){
+fn test_finalize() {
     let shared = vec![Card::new("Ta"), Card::new("5a"), Card::new("8a"), Card::new("3b"), Card::new("Kb")];
     let c1 = [Card::new("Tb"), Card::new("5d")];
     let c2 = [Card::new("Tc"), Card::new("4c")];
@@ -323,14 +325,14 @@ fn test_finalize(){
     p2.set_money(10);
     p2.set_bet(5);
 
-    let server_data = Arc::new(Mutex::new(ServerData{
+    let server_data = Arc::new(Mutex::new(ServerData {
         started: true,
         players: vec![
             p1,
             p2,
-        ]
+        ],
     }));
-    let mut table = Table{
+    let mut table = Table {
         server: server_data.clone(),
         bank: 300,
         shared: shared,

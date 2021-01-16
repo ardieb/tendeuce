@@ -14,7 +14,7 @@ pub trait Player {
     fn get_bet(&self) -> i32;
     fn set_bet(&mut self, bet: i32);
     fn bet(&mut self, bet: i32);
-    fn is_allin(&self) -> bool{
+    fn is_allin(&self) -> bool {
         self.get_money() == 0
     }
     fn is_dead(&self) -> bool;

@@ -1,12 +1,11 @@
-
 use player::*;
 
 #[derive(Debug)]
 pub enum MessageType {
-    UNKNOWN,
-    READY,
-    BET,
-    FOLD,
+    Unknown,
+    Ready,
+    Bet,
+    Fold,
 }
 
 macro_rules! count_exprs {
@@ -68,11 +67,11 @@ macro_rules! try_box {
 
 pub trait Message {
     fn get_type(&self) -> MessageType;
-    fn parse(Vec<&str>) -> Option<Self> where Self: Sized;
+    fn parse(_: Vec<&str>) -> Option<Self> where Self: Sized;
 }
 
-impl Message{
-    pub fn from_str(msg: &String) -> Box<Self>{
+impl Message {
+    pub fn from_str(msg: &String) -> Box<Self> {
         let args = msg.split(' ').collect::<Vec<&str>>();
         match args[0] {
             "READY" => try_box!(ReadyMessage::parse(args), UnknownMessage),
@@ -82,7 +81,7 @@ impl Message{
         }
     }
 
-    pub fn start(players: &[Box<Player + Send>]) -> String{
+    pub fn start(players: &[Box<dyn Player + Send>]) -> String {
         let mut msg = format!("START {}", players.len());
         for player in players {
             msg = format!("{} {}", msg, player.get_name().unwrap());
@@ -90,7 +89,7 @@ impl Message{
         msg
     }
 
-    pub fn round(bank: i32, players: &[Box<Player + Send>]) -> String{
+    pub fn round(bank: i32, players: &[Box<dyn Player + Send>]) -> String {
         let mut msg = format!("ROUND {}", bank);
         for player in players {
             msg = format!("{} {}", msg, player.get_money());
@@ -99,9 +98,9 @@ impl Message{
     }
 }
 
-define_messages!{
-    UnknownMessage(MessageType::UNKNOWN => );
-    ReadyMessage(MessageType::READY => name: String);
-    BetMessage(MessageType::BET => money: i32);
-    FoldMessage(MessageType::FOLD => );
+define_messages! {
+    UnknownMessage(MessageType::Unknown => );
+    ReadyMessage(MessageType::Ready => name: String);
+    BetMessage(MessageType::Bet => money: i32);
+    FoldMessage(MessageType::Fold => );
 }

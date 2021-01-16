@@ -1,32 +1,34 @@
-use std::sync::*;
 use std::*;
-use super::server::*;
-use super::message::*;
-use super::card::*;
-use super::table::*;
-use std::net::{TcpListener, TcpStream};
-use player::*;
-use human::*;
 use std;
+use std::net::{TcpListener, TcpStream};
+use std::sync::*;
+
+use human::*;
+use player::*;
+
+use super::card::*;
+use super::message::*;
+use super::server::*;
+use super::table::*;
 
 #[test]
 pub fn table_test() {
     let p1 = Arc::new(Mutex::new(Vec::new()));
     let p2 = Arc::new(Mutex::new(Vec::new()));
 
-    let server_data = Arc::new(Mutex::new(ServerData{
+    let server_data = Arc::new(Mutex::new(ServerData {
         started: true,
         players: vec![
             Box::new(Human::test_new(p1.clone())),
             Box::new(Human::test_new(p2.clone())),
-        ]
+        ],
     }));
     let mut table = Table::new(&mut server_data.clone());
 
-    let test1 = |msg: &str|{
+    let test1 = |msg: &str| {
         p1.lock().unwrap().push(msg.to_string());
     };
-    let test2 = |msg: &str|{
+    let test2 = |msg: &str| {
         p2.lock().unwrap().push(msg.to_string());
     };
 
